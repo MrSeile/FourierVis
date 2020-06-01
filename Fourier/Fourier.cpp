@@ -2,29 +2,51 @@
 
 Fourier::Fourier(const std::vector<complex>& funcPoints, const int& oscilators)
 {
+	std::vector<int> nums = { 0 };
+	for (int n = 1; n <= oscilators; n++)
 	{
-		std::vector<int> nums = { 0 };
-		for (int n = 1; n <= oscilators; n++)
+		nums.push_back(n);
+		nums.push_back(-n);
+	}
+
+	float dt = 1.f / funcPoints.size();
+
+	for (const int& n : nums)
+	{
+		complex integ = 0.f;
+		int i = 0;
+		for (float t = 0.f; t <= 1; t += dt)
 		{
-			nums.push_back(n);
-			nums.push_back(-n);
+			integ += std::exp(-2.f * (float)PI * 1_i * (float)n * t) * funcPoints[i] * dt;
+
+			i++;
 		}
+		m_coefs.push_back({ n, integ });
 
-		float dt = 1.f / funcPoints.size();
+	}
+}
 
-		for (const int& n : nums)
+Fourier::Fourier(const std::function<complex(const float& t)>& func, const int& oscilators, const float& dt)
+{
+	std::vector<int> nums = { 0 };
+	for (int n = 1; n <= oscilators; n++)
+	{
+		nums.push_back(n);
+		nums.push_back(-n);
+	}
+
+	for (const int& n : nums)
+	{
+		complex integ = 0.f;
+		int i = 0;
+		for (float t = 0.f; t <= 1; t += dt)
 		{
-			complex integ = 0.f;
-			int i = 0;
-			for (float t = 0.f; t <= 1; t += dt)
-			{
-				integ += std::exp(-2.f * (float)PI * 1_i * (float)n * t) * funcPoints[i] * dt;
+			integ += std::exp(-2.f * (float)PI * 1_i * (float)n * t) * func(t) * dt;
 
-				i++;
-			}
-			m_coefs.push_back({ n, integ });
-
+			i++;
 		}
+		m_coefs.push_back({ n, integ });
+
 	}
 }
 

@@ -50,6 +50,11 @@ inline double map(const double& value, const double& inputMin, const double& inp
 	return outputMin + ((outputMax - outputMin) / (inputMax - inputMin)) * (value - inputMin);
 }
 
+inline float map(const float& value, const float& inputMin, const float& inputMax, const float& outputMin, const float& outputMax)
+{
+	return outputMin + ((outputMax - outputMin) / (inputMax - inputMin)) * (value - inputMin);
+}
+
 inline double randRange(const double& min, const double& max)
 {
 	return min + (rand() / (RAND_MAX / ((max + 0) - min)));

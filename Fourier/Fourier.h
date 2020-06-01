@@ -2,6 +2,7 @@
 
 #include <vector>
 #include <complex>
+#include <functional>
 
 #define _USE_MATH_DEFINES
 #include <math.h>
@@ -29,6 +30,7 @@ private:
 public:
 
 	Fourier(const std::vector<complex>& funcPoints, const int& oscilators);
+	Fourier(const std::function<complex(const float& t)>& funcPoints, const int& oscilators, const float& dt = 0.0001f);
 
 	complex get(const float& x);
 

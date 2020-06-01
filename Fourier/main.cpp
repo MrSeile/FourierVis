@@ -6,89 +6,77 @@
 #include <array>
 #include <vector>
 
-#include <sstream>
-
 #include <UITools/UITools.h>
 #include <utility/utility.h>
-#include <Instrumentor/Instrumentor.h>
 
 #include "Fourier.h"
 
-complex f(const float& x)
+
+class SVGPath
 {
-	if (x < 0.5f)
-		return 0.f;
-	if (x == 0.5f)
-		return 0.5;
-	if (x > 0.5f)
-		return 1.f;
+private:
+	std::vector<sf::Vector2f> points;
 
-	//return x - std::floor(x);
-
-	//if (x < 0.25)
-	//	return 4.f * x - 0.5f - 0.5i;
-	//if (x < 0.5)
-	//	return 0.5f + (x - 0.25f) * 4i - 0.5i;
-	//if (x < 0.75)
-	//	return 0.5f - (4.f * (x - 0.5f)) + 0.5i;
-	//if (x <= 1)
-	//	return -0.5f + (1i - (x - 0.75f) * 4i) - 0.5i;
-
-	//if (x < 0.25)
-	//	return 4.f * x;
-	//if (x < 0.5)
-	//	return 1.f + (x - 0.25f) * 4i;
-	//if (x < 0.75)
-	//	return 1.f - (4.f * (x - 0.5f)) + 1i;
-	//if (x <= 1)
-	//	return (1i - (x - 0.75f) * 4i);
-
-	//return complex
-	//(
-	//	sinf(x * 2 * PI) * ( expf(cosf(x * 2 * PI)) - 2 * cosf(4.f * x * 2 * PI) - powf(sinf((x * 2 * PI) / 12.f), 5) ),
-	//	cosf(x * 2 * PI) * ( expf(cosf(x * 2 * PI)) - 2 * cosf(4.f * x * 2 * PI) - powf(sinf((x * 2 * PI) / 12.f), 5) )
-	//);
-}
-
-std::vector<complex> GetDataFromSVG(std::string path, float step)
-{
-	std::string cmd = "python loadSVG.py \"" + path + "\" " + std::to_string(step);
-
-	std::string output;
-	std::array<char, 128> buffer;
-
-	std::unique_ptr<FILE, decltype(&_pclose)> pipe(_popen(cmd.c_str(), "r"), _pclose);
-
-	while (fgets(buffer.data(), (int)buffer.size(), pipe.get()) != nullptr)
+public:
+	SVGPath(const std::string& path)
 	{
-		output += buffer.data();
+		std::ifstream ifs("rsc/data.dat");
+		std::string str((std::istreambuf_iterator<char>(ifs)), (std::istreambuf_iterator<char>()));
+
+		std::replace(str.begin(), str.end(), '\n', ' ');
+		std::replace(str.begin(), str.end(), ',', ' ');
+
+
+		int mDelim = str.find(std::string("M"));
+		int cDelim = str.find(std::string("C"));
+		int zDelim = str.find(std::string("Z"));
+
+		std::string mStr = str.substr(mDelim + 1, cDelim - mDelim - 1);
+		std::string cStr = str.substr(cDelim + 1, zDelim - cDelim - 1);
+
+
+		// Split mStr
+		std::stringstream mStrSS(mStr);
+		std::vector<std::string> mData((std::istream_iterator<std::string>(mStrSS)), std::istream_iterator<std::string>());
+
+		points.push_back({ std::stof(mData[0]), std::stof(mData[1]) });
+
+		// Split cStr
+		std::stringstream cStrSS(cStr);
+		std::vector<std::string> cData = std::vector((std::istream_iterator<std::string>(cStrSS)), std::istream_iterator<std::string>());
+
+		for (int i = 0; i < cData.size(); i += 2)
+		{
+			points.push_back({ std::stof(cData[i]), std::stof(cData[i + 1]) });
+		}
 	}
 
-	std::stringstream ss(output);
-	std::string line;
-
-	std::vector<float> lines;
-	lines.reserve((int)(2.f / step));
-	while (std::getline(ss, line))
+	sf::Vector2f get(const float& t) const
 	{
-		lines.push_back(std::stof(line));
-	}
+		// 3 values per curve
+		int nSegm = (points.size() - 1) / 3;
 
-	std::vector<complex> func;
-	func.reserve((int)(1.f / step));
-	for (int i = 0; i < lines.size(); i += 2)
-	{
-		func.push_back(lines[i] + lines[(__int64)i + 1] * 1_i);
-	}
+		int segment = std::min(std::floorf(nSegm * t), nSegm - 1.f);
 
-	return func;
-}
+		float x = map(t, segment / (float)nSegm, (segment + 1) / (float)nSegm, 0.f, 1.f);
+
+
+		sf::Vector2f p0 = points[segment * 3];
+		sf::Vector2f p1 = points[segment * 3 + 1];
+		sf::Vector2f p2 = points[segment * 3 + 2];
+		sf::Vector2f p3 = points[segment * 3 + 3];
+
+		// p0 * (1 - t)^3 + p1 + 3 * t * (1 - t)^2 + p2 * 3 * t^2 * (1 - t) + p3 * t^3
+		return powf(1 - x, 3) * p0 + 3 * powf(1 - x, 2) * x * p1 + 3 * (1 - x) * powf(x, 2) * p2 + powf(x, 3) * p3;
+	}
+};
 
 enum class State
 {
 	Free,
 	Chase
 };
+
 
 int main()
 {
@@ -209,23 +197,29 @@ int main()
 	ui.AddObject(&posSlider);
 	std::cout << t.GetElapsedTime<Timer::milliseconds>() << std::endl;
 
-	// Load function from svg
-	std::cout << "Loading svg: ";
-	t.Restart();
-	std::vector<complex> points = GetDataFromSVG("rsc/svgs/s.svg", 0.00001f);
-	std::cout << t.GetElapsedTime<Timer::milliseconds>() << std::endl;
+
+	SVGPath svg("rsc/data.dat");
+
+	auto f = [&](const float& t) -> complex
+	{
+		sf::Vector2f out = svg.get(t);
+		return complex
+		{
+			out.x, out.y
+		};
+	};
 
 	// Create the fourier object
 	std::cout << "Creating Fourier: ";
 	t.Restart();
-	Fourier four(points, 500);
+	Fourier four(f, 500);
 	std::cout << t.GetElapsedTime<Timer::milliseconds>() << std::endl;
 
 	std::cout << "Getting fourier points: ";
 	t.Restart();
 	// Add fourier function
 	std::vector<sf::Vector2f> data;
-	data.reserve(1.f / 0.0001f);
+	data.reserve((int)(1.f / 0.0001f));
 	for (float x = 0; x <= 1; x += 0.0001f)
 	{
 		complex y = four.get(x);
@@ -236,24 +230,6 @@ int main()
 	}
 	std::cout << t.GetElapsedTime<Timer::milliseconds>() << std::endl;
 
-	std::cout << "Getting original points: ";
-	t.Restart();
-	// Add original function
-	std::vector<sf::Vector2f> oData;
-	oData.reserve((int)(points.size() / 100));
-	for (int i = 0; i < points.size(); i++)
-	{
-		if (i % 100 == 0)
-		{
-			oData.push_back({ points[i].real(), points[i].imag() });
-		}
-	}
-	oData.push_back({ points[0].real(), points[0].imag() });
-	std::cout << t.GetElapsedTime<Timer::milliseconds>() << std::endl;
-	std::cout << std::endl;
-
-	// Draw functions
-	//graph.Plot(oData, { 2, sf::Color::Black });
 	graph.Plot(data, { 2, { 150, 150, 150 } });
 
 	// Main loop
@@ -371,3 +347,4 @@ int main()
 		}
 	}
 }
+
