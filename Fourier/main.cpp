@@ -20,7 +20,7 @@ private:
 public:
 	SVGPath(const std::string& path)
 	{
-		std::ifstream ifs("rsc/data.dat");
+		std::ifstream ifs(path);
 		std::string str((std::istreambuf_iterator<char>(ifs)), (std::istreambuf_iterator<char>()));
 
 		std::replace(str.begin(), str.end(), '\n', ' ');
@@ -87,8 +87,6 @@ int main()
 	float x = 0.f;
 	float vel = 0.01f;
 
-	std::cout << "Creating UI: ";
-	t.Restart();
 	sf::ContextSettings settings;
 	settings.antialiasingLevel = 8;
 
@@ -97,6 +95,9 @@ int main()
 	sf::RenderWindow window({ (uint)windowSize.x, (uint)windowSize.y }, "Fourier", sf::Style::Default, settings);
 	window.setFramerateLimit(60);
 
+
+	std::cout << "Creating UI: ";
+	t.Restart();
 
 	// Create graph
 	ui::Graph graph = ui::Graph("g");
@@ -198,7 +199,9 @@ int main()
 	std::cout << t.GetElapsedTime<Timer::milliseconds>() << std::endl;
 
 
-	SVGPath svg("rsc/data.dat");
+	std::cout << "Loadingn svg: ";
+	t.Restart();
+	SVGPath svg("rsc/e.dat");
 
 	auto f = [&](const float& t) -> complex
 	{
@@ -208,11 +211,12 @@ int main()
 			out.x, out.y
 		};
 	};
+	std::cout << t.GetElapsedTime<Timer::milliseconds>() << std::endl;
 
 	// Create the fourier object
 	std::cout << "Creating Fourier: ";
 	t.Restart();
-	Fourier four(f, 500);
+	Fourier four(f, 200);
 	std::cout << t.GetElapsedTime<Timer::milliseconds>() << std::endl;
 
 	std::cout << "Getting fourier points: ";

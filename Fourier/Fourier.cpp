@@ -1,4 +1,6 @@
 #include "Fourier.h"
+#include <algorithm>
+#include <execution>
 
 Fourier::Fourier(const std::vector<complex>& funcPoints, const int& oscilators)
 {
@@ -34,20 +36,26 @@ Fourier::Fourier(const std::function<complex(const float& t)>& func, const int& 
 		nums.push_back(n);
 		nums.push_back(-n);
 	}
+	
 
-	for (const int& n : nums)
-	{
-		complex integ = 0.f;
-		int i = 0;
-		for (float t = 0.f; t <= 1; t += dt)
+	std::mutex mutex;
+
+	std::for_each(std::execution::par_unseq, nums.begin(), nums.end(),
+		[&](const int& n)
 		{
-			integ += std::exp(-2.f * (float)PI * 1_i * (float)n * t) * func(t) * dt;
+			complex integ = 0.f;
+			int i = 0;
+			for (float t = 0.f; t <= 1; t += dt)
+			{
+				integ += std::exp(-2.f * (float)PI * 1_i * (float)n * t) * func(t) * dt;
 
-			i++;
-		}
-		m_coefs.push_back({ n, integ });
+				i++;
+			}
 
-	}
+			mutex.lock();
+			m_coefs.push_back({ n, integ });
+			mutex.unlock();
+		});
 }
 
 complex Fourier::get(const float& x)
