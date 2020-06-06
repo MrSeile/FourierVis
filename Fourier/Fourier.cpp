@@ -13,7 +13,10 @@ Fourier::Fourier(const std::vector<complex>& funcPoints, const int& oscilators)
 
 	float dt = 1.f / funcPoints.size();
 
-	for (const int& n : nums)
+	std::mutex mutex;
+
+	std::for_each(std::execution::par_unseq, nums.begin(), nums.end(),
+	[&](const int& n)
 	{
 		complex integ = 0.f;
 		int i = 0;
@@ -23,9 +26,11 @@ Fourier::Fourier(const std::vector<complex>& funcPoints, const int& oscilators)
 
 			i++;
 		}
-		m_coefs.push_back({ n, integ });
 
-	}
+		mutex.lock();
+		m_coefs.push_back({ n, integ });
+		mutex.unlock();
+	});
 }
 
 Fourier::Fourier(const std::function<complex(const float& t)>& func, const int& oscilators, const float& dt)
@@ -41,21 +46,18 @@ Fourier::Fourier(const std::function<complex(const float& t)>& func, const int& 
 	std::mutex mutex;
 
 	std::for_each(std::execution::par_unseq, nums.begin(), nums.end(),
-		[&](const int& n)
+	[&](const int& n)
+	{
+		complex integ = 0.f;
+		for (float t = 0.f; t <= 1; t += dt)
 		{
-			complex integ = 0.f;
-			int i = 0;
-			for (float t = 0.f; t <= 1; t += dt)
-			{
-				integ += std::exp(-2.f * (float)PI * 1_i * (float)n * t) * func(t) * dt;
+			integ += std::exp(-2.f * (float)PI * 1_i * (float)n * t) * func(t) * dt;
+		}
 
-				i++;
-			}
-
-			mutex.lock();
-			m_coefs.push_back({ n, integ });
-			mutex.unlock();
-		});
+		mutex.lock();
+		m_coefs.push_back({ n, integ });
+		mutex.unlock();
+	});
 }
 
 complex Fourier::get(const float& x)

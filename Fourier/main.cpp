@@ -27,9 +27,9 @@ public:
 		std::replace(str.begin(), str.end(), ',', ' ');
 
 
-		int mDelim = str.find(std::string("M"));
-		int cDelim = str.find(std::string("C"));
-		int zDelim = str.find(std::string("Z"));
+		int mDelim = (int)str.find(std::string("M"));
+		int cDelim = (int)str.find(std::string("C"));
+		int zDelim = (int)str.find(std::string("Z"));
 
 		std::string mStr = str.substr(mDelim + 1, cDelim - mDelim - 1);
 		std::string cStr = str.substr(cDelim + 1, zDelim - cDelim - 1);
@@ -54,17 +54,17 @@ public:
 	sf::Vector2f get(const float& t) const
 	{
 		// 3 values per curve
-		int nSegm = (points.size() - 1) / 3;
+		int nSegm = (int)(points.size() - 1) / 3;
 
-		int segment = std::min(std::floorf(nSegm * t), nSegm - 1.f);
+		int segment = (int)std::min(std::floorf(nSegm * t), nSegm - 1.f);
 
 		float x = map(t, segment / (float)nSegm, (segment + 1) / (float)nSegm, 0.f, 1.f);
 
 
-		sf::Vector2f p0 = points[segment * 3];
-		sf::Vector2f p1 = points[segment * 3 + 1];
-		sf::Vector2f p2 = points[segment * 3 + 2];
-		sf::Vector2f p3 = points[segment * 3 + 3];
+		sf::Vector2f p0 = points[segment * 3 - 1 + 1];
+		sf::Vector2f p1 = points[segment * 3     + 1];
+		sf::Vector2f p2 = points[segment * 3 + 1 + 1];
+		sf::Vector2f p3 = points[segment * 3 + 2 + 1];
 
 		// p0 * (1 - t)^3 + p1 + 3 * t * (1 - t)^2 + p2 * 3 * t^2 * (1 - t) + p3 * t^3
 		return powf(1 - x, 3) * p0 + 3 * powf(1 - x, 2) * x * p1 + 3 * (1 - x) * powf(x, 2) * p2 + powf(x, 3) * p3;
@@ -202,7 +202,11 @@ int main()
 	std::cout << "Loadingn svg: ";
 	t.Restart();
 	SVGPath svg("rsc/e.dat");
+	std::cout << t.GetElapsedTime<Timer::milliseconds>() << std::endl;
 
+	// Create the fourier object
+	std::cout << "Creating Fourier: ";
+	t.Restart();
 	auto f = [&](const float& t) -> complex
 	{
 		sf::Vector2f out = svg.get(t);
@@ -211,12 +215,8 @@ int main()
 			out.x, out.y
 		};
 	};
-	std::cout << t.GetElapsedTime<Timer::milliseconds>() << std::endl;
 
-	// Create the fourier object
-	std::cout << "Creating Fourier: ";
-	t.Restart();
-	Fourier four(f, 200);
+	Fourier four(f, 100);
 	std::cout << t.GetElapsedTime<Timer::milliseconds>() << std::endl;
 
 	std::cout << "Getting fourier points: ";
@@ -232,6 +232,8 @@ int main()
 		data.push_back({ y.real(), y.imag() });
 		//data.push_back({ x, y.real() });
 	}
+	data.push_back(data[0]);
+
 	std::cout << t.GetElapsedTime<Timer::milliseconds>() << std::endl;
 
 	graph.Plot(data, { 2, { 150, 150, 150 } });
@@ -285,6 +287,17 @@ int main()
 				}
 
 				view = { -zoom, zoom };
+
+				// Zoom where the mouse is
+				sf::Vector2f iMousePos = graph.MapCoordsToPos((sf::Vector2f)sf::Mouse::getPosition(window));
+
+				graph.SetRange(sf::Vector2f(center.x, center.x) + view * aspect, sf::Vector2f(center.y, center.y) + view);
+
+				sf::Vector2f fMousePos = graph.MapCoordsToPos((sf::Vector2f)sf::Mouse::getPosition(window));
+
+				sf::Vector2f delta = fMousePos - iMousePos;
+
+				center -= delta;
 			}
 
 			if (e.type == sf::Event::MouseButtonPressed && e.key.code == sf::Mouse::Left && !e.handled)
