@@ -92,6 +92,7 @@
   <ItemGroup>
     <ClCompile Include="Fourier.cpp" />
     <ClCompile Include="main.cpp" />
+    <ClCompile Include="SandBox.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\vendor\UITools\UITools.vcxproj">
