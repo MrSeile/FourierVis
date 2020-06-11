@@ -3,6 +3,7 @@
 #include <execution>
 #include <iostream>
 
+
 Fourier::Fourier(const std::vector<complex>& funcPoints, const int& oscilators)
 {
 	std::vector<int> nums = { 0 };
@@ -29,7 +30,7 @@ Fourier::Fourier(const std::vector<complex>& funcPoints, const int& oscilators)
 		}
 
 		mutex.lock();
-		m_coefs.push_back({ n, integ });
+		m_coeffs.push_back({ n, integ });
 		mutex.unlock();
 	});
 }
@@ -46,7 +47,7 @@ Fourier::Fourier(const std::function<complex(const float& t)>& func, const int& 
 
 	std::mutex mutex;
 
-	std::for_each(std::execution::par_unseq, nums.begin(), nums.end(),
+	std::for_each(std::execution::par, nums.begin(), nums.end(),
 	[&](const int& n)
 	{
 		complex integ = 0.f + 0_i;
@@ -55,12 +56,11 @@ Fourier::Fourier(const std::function<complex(const float& t)>& func, const int& 
 			integ += std::exp(-2.f * (float)PI * 1_i * (float)n * t) * func(t) * dt;
 		}
 
-		mutex.lock();
-		m_coefs.push_back({ n, integ });
-		mutex.unlock();
+		std::lock_guard<std::mutex> lock(mutex);
+		m_coeffs.push_back({ n, integ });
 	});
 
-	std::sort(m_coefs.begin(), m_coefs.end(), [&](const std::pair<int, complex>& l, const std::pair<int, complex>& r)->bool
+	std::sort(m_coeffs.begin(), m_coeffs.end(), [&](const std::pair<int, complex>& l, const std::pair<int, complex>& r)->bool
 	{
 		if (std::abs(l.first) != std::abs(r.first))
 		{
@@ -71,26 +71,19 @@ Fourier::Fourier(const std::function<complex(const float& t)>& func, const int& 
 			return l.first > r.first;
 		}
 	});
-
-	for (auto& v : m_coefs)
-	{
-		std::cout << v.first << " ";
-	}
-
-	std::cout << "\n\n";
 }
 
 complex Fourier::get(const float& x)
 {
 	complex y = 0;
-	for (const auto& [n, c] : m_coefs)
+	for (const auto& [n, c] : m_coeffs)
 	{
 		y += c * std::exp(n * 2.f * (float)PI * 1_i * x);
 	}
 	return y;
 }
 
-const std::vector<std::pair<int, complex>>& Fourier::GetCoefs()
+const std::vector<std::pair<int, complex>>& Fourier::GetCoeffs()
 {
-	return m_coefs;
+	return m_coeffs;
 }

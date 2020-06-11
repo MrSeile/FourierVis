@@ -25,7 +25,7 @@ constexpr complex operator""_i(long double d)
 class Fourier
 {
 private:
-	std::vector<std::pair<int, complex>> m_coefs;
+	std::vector<std::pair<int, complex>> m_coeffs;
 
 public:
 
@@ -34,5 +34,5 @@ public:
 
 	complex get(const float& x);
 
-	const std::vector<std::pair<int, complex>>& GetCoefs();
+	const std::vector<std::pair<int, complex>>& GetCoeffs();
 };
