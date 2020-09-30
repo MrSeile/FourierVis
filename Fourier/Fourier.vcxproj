@@ -94,15 +94,11 @@
   <ItemGroup>
     <ClCompile Include="Fourier.cpp" />
     <ClCompile Include="main.cpp" />
-    <ClCompile Include="SandBox.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\vendor\UITools\UITools.vcxproj">
       <Project>{b545bb43-3e93-4876-9d6d-1beb1e25c1ad}</Project>
     </ProjectReference>
-  </ItemGroup>
-  <ItemGroup>
-    <None Include="loadSVG.py" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Fourier.h" />

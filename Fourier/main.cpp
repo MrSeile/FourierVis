@@ -77,7 +77,7 @@ public:
 	}
 };
 
-enum class State
+enum class CameraState
 {
 	Free,
 	Chase
@@ -88,11 +88,16 @@ int main()
 {
 	Timer t;
 
-	State state = State::Free;
+	CameraState state = CameraState::Free;
 	bool animation = true;
+
+	// Current x
 	float x = 0.f;
+
+	// Current velocity
 	float vel = 0.01f;
 
+	// Initialize SFML window
 	sf::ContextSettings settings;
 	settings.antialiasingLevel = 8;
 
@@ -107,7 +112,6 @@ int main()
 
 	// Create graph
 	ui::InteractiveGraph graph("g");
-	//ui::Graph graph("g");
 	graph.SetSize(windowSize);
 	graph.SetPosition({ 0, 0 });
 
@@ -132,7 +136,7 @@ int main()
 
 			self->text.setString(pressed ? "Chase cam" : "Free cam");
 
-			state = pressed ? State::Free : State::Chase;
+			state = pressed ? CameraState::Free : CameraState::Chase;
 		});
 	stateButton.SetPressed(true);
 
@@ -148,13 +152,13 @@ int main()
 	animationButton.text.setCharacterSize(15);
 
 	animationButton.SetClickFunction([&](ui::UIObject* obj, bool pressed)
-		{
-			auto self = dynamic_cast<ui::ToggleButton*>(obj);
+	{
+		auto self = dynamic_cast<ui::ToggleButton*>(obj);
 
-			self->text.setString(pressed ? "No animation" : "Animation");
+		self->text.setString(pressed ? "No animation" : "Animation");
 
-			animation = pressed;
-		});
+		animation = pressed;
+	});
 	animationButton.SetPressed(true);
 
 	ui.AddObject(&animationButton);
@@ -235,10 +239,8 @@ int main()
 	for (float x = 0; x < 1; x += 0.0001f)
 	{
 		complex y = four.get(x);
-		//complex y = f(x);
 
 		data.push_back({ y.real(), y.imag() });
-		//data.push_back({ x, y.real() });
 	}
 	std::cout << t.GetElapsedTime<Timer::milliseconds>() << std::endl;
 
@@ -250,21 +252,14 @@ int main()
 	data.reserve((int)(1.f / 0.0001f));
 	for (float x = 0; x <= 1; x += 0.0001f)
 	{
-		//complex y = four.get(x);
 		complex y = f(x);
 
 		oData.push_back({ y.real(), y.imag() });
-		//data.push_back({ x, y.real() });
 	}
 	std::cout << t.GetElapsedTime<Timer::milliseconds>() << std::endl;
 
-	//graph.Plot(oData, { 2, { 50, 50, 50 }, true });
+	graph.Plot(oData, { 1, { 50, 50, 50 }, true });
 	graph.Plot(data, { 2, { 150, 150, 150 }, true });
-
-	//std::cout << "Fitting graph: ";
-	//t.Restart();
-	//graph.Fit();
-	//std::cout << t.GetElapsedTime<Timer::milliseconds>() << std::endl;
 
 	while (window.isOpen())
 	{
@@ -310,7 +305,7 @@ int main()
 
 		graph.Update(window);
 
-		if (state == State::Chase)
+		if (state == CameraState::Chase)
 		{
 			graph.SetCenter({ pos.real(), pos.imag() });
 		}

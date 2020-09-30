@@ -43,10 +43,9 @@ Fourier::Fourier(const std::function<complex(const float& t)>& func, const int& 
 		nums.push_back(n);
 		nums.push_back(-n);
 	}
-	
 
+	// Calculate the coefficients
 	std::mutex mutex;
-
 	std::for_each(std::execution::par, nums.begin(), nums.end(),
 	[&](const int& n)
 	{
@@ -60,6 +59,7 @@ Fourier::Fourier(const std::function<complex(const float& t)>& func, const int& 
 		m_coeffs.push_back({ n, integ });
 	});
 
+	// Sort all coefficients (0, 1, -1, 2, -2, 3, -3...)
 	std::sort(m_coeffs.begin(), m_coeffs.end(), [&](const std::pair<int, complex>& l, const std::pair<int, complex>& r)->bool
 	{
 		if (std::abs(l.first) != std::abs(r.first))

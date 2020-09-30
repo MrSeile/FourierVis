@@ -21,12 +21,6 @@
     <ClCompile Include="Fourier.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="SandBox.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-  </ItemGroup>
-  <ItemGroup>
-    <None Include="loadSVG.py" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Fourier.h">
