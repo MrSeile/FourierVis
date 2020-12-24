@@ -17,7 +17,42 @@
 class SVGPath
 {
 private:
-	std::vector<ui::Vec2f> points;
+	struct CurveData
+	{
+		ui::Vec2f p0, p1, p2, p3;
+		float length;
+	};
+	
+	std::vector<CurveData> m_curves;
+
+	int m_nSegments;
+	float m_length = 0.f;
+
+private:
+	ui::Vec2f GetCurve(float x, const CurveData& curve) const
+	{
+		// p0 * (1 - t)^3 + p1 + 3 * t * (1 - t)^2 + p2 * 3 * t^2 * (1 - t) + p3 * t^3
+		return	curve.p0 * powf(1 - x, 3) +
+				curve.p1 * 3.f * powf(1 - x, 2) * x +
+				curve.p2 * 3.f * (1 - x) * powf(x, 2) +
+				curve.p3 * powf(x, 3);
+	}
+
+	float CurveLength(const CurveData& curve, int iterations = 5)
+	{
+		float length = 0;
+
+		float delta = 1.f / (float)iterations;
+		for (int i = 1; i < iterations; i++)
+		{
+			ui::Vec2f iPos = GetCurve((i - 1) * delta, curve);
+			ui::Vec2f fPos = GetCurve(i * delta, curve);
+
+			length += (fPos - iPos).Length();
+		}
+
+		return length;
+	}
 
 public:
 	SVGPath(const std::string& path)
@@ -36,14 +71,15 @@ public:
 		std::string mStr = str.substr(mDelim + 1, cDelim - mDelim - 1);
 		std::string cStr = str.substr(cDelim + 1, zDelim - cDelim - 1);
 
+		std::vector<ui::Vec2f> points;
 
-		// Split mStr
+		// Split mStr (Start pos)
 		std::stringstream mStrSS(mStr);
 		std::vector<std::string> mData((std::istream_iterator<std::string>(mStrSS)), std::istream_iterator<std::string>());
 
 		points.push_back({ std::stof(mData[0]), std::stof(mData[1]) });
 
-		// Split cStr
+		// Split cStr (Path data)
 		std::stringstream cStrSS(cStr);
 		std::vector<std::string> cData = std::vector((std::istream_iterator<std::string>(cStrSS)), std::istream_iterator<std::string>());
 
@@ -51,29 +87,56 @@ public:
 		{
 			points.push_back({ std::stof(cData[i]), std::stof(cData[i + 1]) });
 		}
+
+		m_nSegments = (int)(points.size() - 1) / 3;
+
+		for (int i = 0; i < m_nSegments; i++)
+		{
+			m_curves.push_back({
+				points[i * 3 + 0],
+				points[i * 3 + 1],
+				points[i * 3 + 2],
+				points[i * 3 + 3]
+			});
+			m_curves.back().length = CurveLength(m_curves.back(), 20);
+			m_length += m_curves.back().length;
+		}
 	}
 
-	ui::Vec2f get(const float& t) const
+	ui::Vec2f get(const float& t, bool constSpeed = true) const
 	{
 		float val = t;
 		while (val > 1)
 			val -= 1;
 
-		// 3 values per curve
-		int nSegm = (int)(points.size() - 1) / 3;
 
-		int segment = std::min((int)std::floor(nSegm * val), nSegm - 1);
+		float x = 0;
+		int segment = 0;
 
-		float x = map(val, segment / (float)nSegm, (segment + 1) / (float)nSegm, 0.f, 1.f);
+		if (constSpeed)
+		{
+			float iPos = 0.f;
+			float fPos = 0.f;
+			
+			for (segment = 0; segment < m_nSegments; segment++)
+			{
+				fPos += m_curves[segment].length / m_length;
+				iPos = fPos - m_curves[segment].length / m_length;
 
+				if (fPos > val)
+					break;
+			}
 
-		ui::Vec2f p0 = points[segment * 3 - 1 + 1];
-		ui::Vec2f p1 = points[segment * 3 + 1];
-		ui::Vec2f p2 = points[segment * 3 + 1 + 1];
-		ui::Vec2f p3 = points[segment * 3 + 2 + 1];
+			x = map(val, iPos, fPos, 0.f, 1.f);
+		}
+		else
+		{
+			segment = std::min((int)std::floor(m_nSegments * val), m_nSegments - 1);
+			x = map(val, segment / (float)m_nSegments, (segment + 1) / (float)m_nSegments, 0.f, 1.f);
+		}
+		
 
-		// p0 * (1 - t)^3 + p1 + 3 * t * (1 - t)^2 + p2 * 3 * t^2 * (1 - t) + p3 * t^3
-		return powf(1 - x, 3) * p0 + 3 * powf(1 - x, 2) * x * p1 + 3 * (1 - x) * powf(x, 2) * p2 + powf(x, 3) * p3;
+		return GetCurve(x, m_curves[segment]);
 	}
 };
 
@@ -106,14 +169,64 @@ int main()
 	sf::RenderWindow window({ (uint)windowSize.x, (uint)windowSize.y }, "Fourier", sf::Style::Default, settings);
 	window.setFramerateLimit(60);
 
+	std::cout << "Loadingn svg: ";
+	t.Restart();
+	SVGPath svg("rsc/e2.dat");
+	std::cout << t.GetElapsedTime<Timer::milliseconds>() << std::endl;
+
+	// Create the fourier object
+	std::cout << "Creating Fourier: ";
+	t.Restart();
+	auto f = [&](const float& t) -> complex
+	{
+		ui::Vec2f out = svg.get(t, true);
+		return complex
+		{
+			out.x, out.y
+		};
+	};
+
+	Fourier four(f, 500);
+	std::cout << t.GetElapsedTime<Timer::milliseconds>() << std::endl;
+
+
+	std::cout << "Getting fourier points: ";
+	t.Restart();
+	// Add fourier function
+	std::vector<ui::Vec2f> data;
+	data.reserve((int)(1.f / 0.0001f));
+	for (float x = 0; x < 1; x += 0.0001f)
+	{
+		complex y = four.get(x);
+
+		data.push_back({ y.real(), y.imag() });
+	}
+	std::cout << t.GetElapsedTime<Timer::milliseconds>() << std::endl;
+
+
+	std::cout << "Getting original fourier points: ";
+	t.Restart();
+	// Add fourier function
+	std::vector<ui::Vec2f> oData;
+	data.reserve((int)(1.f / 0.0001f));
+	for (float x = 0; x <= 1; x += 0.0001f)
+	{
+		complex y = f(x);
+
+		oData.push_back({ y.real(), y.imag() });
+	}
+	std::cout << t.GetElapsedTime<Timer::milliseconds>() << std::endl;
+
 
 	std::cout << "Creating UI: ";
 	t.Restart();
-
 	// Create graph
 	ui::InteractiveGraph graph("g");
 	graph.SetSize(windowSize);
 	graph.SetPosition({ 0, 0 });
+
+	graph.Plot(oData, { 1, { 50, 50, 50 }, true });
+	graph.Plot(data, { 2, { 150, 150, 150 }, true });
 
 	sf::Font font;
 	font.loadFromFile("rsc/fonts/font.ttf");
@@ -131,16 +244,42 @@ int main()
 	stateButton.text.setCharacterSize(15);
 
 	stateButton.SetClickFunction([&](ui::UIObject* obj, bool pressed)
-		{
-			auto self = dynamic_cast<ui::ToggleButton*>(obj);
+	{
+		auto self = dynamic_cast<ui::ToggleButton*>(obj);
 
-			self->text.setString(pressed ? "Chase cam" : "Free cam");
+		self->text.setString(pressed ? "Chase cam" : "Free cam");
 
-			state = pressed ? CameraState::Free : CameraState::Chase;
-		});
+		state = pressed ? CameraState::Free : CameraState::Chase;
+	});
 	stateButton.SetPressed(true);
 
 	ui.AddObject(&stateButton);
+
+
+	// Show original button
+	ui::ToggleButton showOriginal("state");
+	showOriginal.shape.setPosition({ 160, 20 });
+	showOriginal.shape.setSize({ 140, 40 });
+	showOriginal.shape.setFillColor(sf::Color::White);
+
+	showOriginal.text.setFont(font);
+	showOriginal.text.setCharacterSize(15);
+
+	showOriginal.SetClickFunction([&](ui::UIObject* obj, bool pressed)
+	{
+		auto self = dynamic_cast<ui::ToggleButton*>(obj);
+
+		self->text.setString(pressed ? "Hide Original" : "Show Original");
+
+		graph.ClearPlots();
+
+		graph.Plot(data, { 2, { 150, 150, 150 }, true });
+		if (pressed)
+			graph.Plot(oData, { 1, { 50, 50, 50 }, true });
+	});
+	showOriginal.SetPressed(false);
+
+	ui.AddObject(&showOriginal);
 
 	// Animation toggle button
 	ui::ToggleButton animationButton("animation");
@@ -164,8 +303,8 @@ int main()
 	ui.AddObject(&animationButton);
 
 	// Speed slider
-	ui::Text speedText("speedText");
-	speedText.setFont(font);
+	//ui::Text speedText("speedText");
+	//speedText.setFont(font);
 
 	ui::Slider speedSlider("speed", font);
 	speedSlider.SetPosition({ 20, 140 });
@@ -209,57 +348,6 @@ int main()
 	ui.AddObject(&posSlider);
 	std::cout << t.GetElapsedTime<Timer::milliseconds>() << std::endl;
 
-
-	std::cout << "Loadingn svg: ";
-	t.Restart();
-	SVGPath svg("rsc/e.dat");
-	std::cout << t.GetElapsedTime<Timer::milliseconds>() << std::endl;
-
-	// Create the fourier object
-	std::cout << "Creating Fourier: ";
-	t.Restart();
-	auto f = [&](const float& t) -> complex
-	{
-		ui::Vec2f out = svg.get(t);
-		return complex
-		{
-			out.x, out.y
-		};
-	};
-
-	Fourier four(f, 100);
-	std::cout << t.GetElapsedTime<Timer::milliseconds>() << std::endl;
-
-
-	std::cout << "Getting fourier points: ";
-	t.Restart();
-	// Add fourier function
-	std::vector<ui::Vec2f> data;
-	data.reserve((int)(1.f / 0.0001f));
-	for (float x = 0; x < 1; x += 0.0001f)
-	{
-		complex y = four.get(x);
-
-		data.push_back({ y.real(), y.imag() });
-	}
-	std::cout << t.GetElapsedTime<Timer::milliseconds>() << std::endl;
-
-
-	std::cout << "Getting original fourier points: ";
-	t.Restart();
-	// Add fourier function
-	std::vector<ui::Vec2f> oData;
-	data.reserve((int)(1.f / 0.0001f));
-	for (float x = 0; x <= 1; x += 0.0001f)
-	{
-		complex y = f(x);
-
-		oData.push_back({ y.real(), y.imag() });
-	}
-	std::cout << t.GetElapsedTime<Timer::milliseconds>() << std::endl;
-
-	graph.Plot(oData, { 1, { 50, 50, 50 }, true });
-	graph.Plot(data, { 2, { 150, 150, 150 }, true });
 
 	while (window.isOpen())
 	{
